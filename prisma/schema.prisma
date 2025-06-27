@@ -1,0 +1,112 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  walletId  String?  @unique
+  password  String 
+  walletAddress String?  @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  analyses  Analysis[]
+  payments  Payment[]
+  
+  @@map("users")
+}
+
+model Analysis {
+  id          String        @id @default(cuid())
+  userId      String
+  type        AnalysisType
+  parameters  Json
+  result      Json?
+  status      AnalysisStatus
+  paymentId   String?       @unique
+  price       Decimal       @db.Decimal(10, 2)
+  createdAt   DateTime      @default(now())
+  completedAt DateTime?
+  
+  user    User     @relation(fields: [userId], references: [id])
+  payment Payment? @relation(fields: [paymentId], references: [id])
+  
+  @@map("analyses")
+}
+
+model Payment {
+  id              String        @id @default(cuid())
+  userId          String
+  analysisId      String?
+  amount          Decimal       @db.Decimal(10, 2)
+  currency        String        @default("USD")
+  status          PaymentStatus
+  x402PaymentId   String?       @unique
+  transactionHash String?
+  createdAt       DateTime      @default(now())
+  completedAt     DateTime?
+  
+  user     User      @relation(fields: [userId], references: [id])
+  analysis Analysis?
+  
+  distributions PaymentDistribution[]
+  
+  @@map("payments")
+}
+
+model PaymentDistribution {
+  id        String  @id @default(cuid())
+  paymentId String
+  recipient String  // wallet address
+  amount    Decimal @db.Decimal(10, 2)
+  type      String  // "platform", "data_provider", "researcher"
+  status    String  @default("pending")
+  txHash    String?
+  createdAt DateTime @default(now())
+  
+  payment Payment @relation(fields: [paymentId], references: [id])
+  
+  @@map("payment_distributions")
+}
+
+model Stakeholder {
+  id          String  @id @default(cuid())
+  name        String
+  walletId    String  @unique
+  type        String  // "data_provider", "researcher", "platform"
+  percentage  Decimal @db.Decimal(5, 2)
+  isActive    Boolean @default(true)
+  createdAt   DateTime @default(now())
+  
+  @@map("stakeholders")
+}
+
+enum AnalysisType {
+  BASIC_OVERVIEW
+  TECHNICAL_ANALYSIS
+  FUNDAMENTAL_ANALYSIS
+  PORTFOLIO_REVIEW
+  MARKET_SENTIMENT
+  DEFI_OPPORTUNITIES
+}
+
+enum AnalysisStatus {
+  PENDING_PAYMENT
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
